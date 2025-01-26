@@ -15,9 +15,9 @@
 #include <chrono>
 #include <array>
 #include "carre.h"
-#include "constraintAlgo.h"
+#include "constraintSolver.h"
 
-using solver_constraint_t = solver::ConstraintAlgo<size_t, tda::Coord>;
+using solver_constraint_t = solver::ConstraintSolver<size_t, tda::Coord>;
 
 int main() 
 {
@@ -55,7 +55,7 @@ int main()
   {
     solver_constraint_t algoC;
 
-    algoC.setIterator([](const typename solver_constraint_t::variable_t& variable1,
+    algoC.setComparator([](const typename solver_constraint_t::variable_t& variable1,
                         const typename solver_constraint_t::variable_t& variable2)
     {
       return variable1.domainSize() < variable2.domainSize();
@@ -63,7 +63,7 @@ int main()
 
     algoC.setSelector([](const typename solver_constraint_t::variable_t& variable)
     {
-      return *(variable.domainBegin());
+      return *(variable.domain().begin());
     } );
 
     algoC.addConstraint([](solver_constraint_t& solver, const tda::Coord coord, const size_t value)
@@ -137,7 +137,7 @@ int main()
 
     std::chrono::time_point<std::chrono::steady_clock> start = std::chrono::steady_clock::now();
     bool result = algoC.solve();
-    std::cout << "Duration=" << std::chrono::duration_cast<std::chrono::milliseconds>(std::chrono::steady_clock::now() - start).count() << "ms" << std::endl;
+    std::cout << "Duration=" << std::chrono::duration_cast<std::chrono::nanoseconds>(std::chrono::steady_clock::now() - start).count() << "ns" << std::endl;
     std::cout << "success=" << std::boolalpha << result << std::endl;
     for (size_t i = 0U; i < SquareSize; ++i)
     {
@@ -151,8 +151,8 @@ int main()
         else
         {
           std::cout << "{";
-          std::for_each(variable.domainBegin(),
-                        variable.domainEnd(),
+          std::for_each(variable.domain().begin(),
+                        variable.domain().end(),
                         [](const size_t& value) { std::cout << value; });
           std::cout << "}";
         }

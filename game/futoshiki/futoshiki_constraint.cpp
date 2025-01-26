@@ -15,10 +15,10 @@
 #include <chrono>
 #include <array>
 #include "futoshiki.h"
-#include "constraintAlgo.h"
+#include "constraintSolver.h"
 #include "dependencyGraph.h"
 
-using solver_constraint_t = solver::ConstraintAlgo<size_t, tda::Coord>;
+using solver_constraint_t = solver::ConstraintSolver<size_t, tda::Coord>;
 
 template<class T>
 size_t max_bound(solver_constraint_t& solver, const tda::Coord& c, T first, T last)
@@ -28,7 +28,7 @@ size_t max_bound(solver_constraint_t& solver, const tda::Coord& c, T first, T la
   for (;first != last; ++first) 
   {
     const tda::Coord& sup = first->second.Sup();
-    const size_t val = (*solver.exists(sup).first.domainRBegin());
+    const size_t val = (*solver.get(sup).domain().rbegin());
     if (c.X == sup.X)
     {
       line.push_back(val);
@@ -66,7 +66,7 @@ size_t min_bound(solver_constraint_t& solver, const tda::Coord& c, T first, T la
   for (;first != last; ++first) 
   {
     const tda::Coord& inf = first->second.Inf();
-    const size_t val = (*solver.exists(inf).first.domainBegin());
+    const size_t val = (*solver.get(inf).domain().begin());
     if (c.X == inf.X)
     {
       line.push_back(val);
@@ -103,14 +103,14 @@ bool inequal(solver_constraint_t& solver, const std::vector<tda::Coord>& constra
   bool sastified = true;
   for (auto it = constraintsOrder.begin(); it != constraintsOrder.end(); ++it)
   {
-    const typename solver_constraint_t::variable_t var = solver.exists(*it).first;
-    if (!var.isInstantiated())
+    const typename solver_constraint_t::variable_t var = solver.get(*it);
+    if (!var.isInstantiated() && !var.isCompromised())
     {
       auto&& range = constraintsInfMap.equal_range(*it);
       if (range.first != range.second)
       {
         const size_t newmax = max_bound(solver, *it, range.first, range.second);
-        const size_t oldmax = (*var.domainRBegin());
+        const size_t oldmax = (*var.domain().rbegin());
         for (size_t k = newmax + 1U; (k <= oldmax) && sastified; ++k)
         {
           sastified = solver.exclude(k, *it);
@@ -124,14 +124,14 @@ bool inequal(solver_constraint_t& solver, const std::vector<tda::Coord>& constra
   {
     for (auto rev = constraintsOrder.rbegin(); rev != constraintsOrder.rend(); ++rev)
     {
-      const typename solver_constraint_t::variable_t var = solver.exists(*rev).first;
-      if (!var.isInstantiated())
+      const typename solver_constraint_t::variable_t var = solver.get(*rev);
+      if (!var.isInstantiated() && !var.isCompromised())
       {
         auto&& range = constraintsSupMap.equal_range(*rev);
         if (range.first != range.second)
         {
           const size_t newmin = min_bound(solver, *rev, range.first, range.second);
-          const size_t oldmin = (*var.domainBegin());
+          const size_t oldmin = (*var.domain().begin());
           for (size_t k = oldmin; (k < newmin) && sastified; ++k)
           {
             sastified = solver.exclude(k, *rev);
@@ -225,7 +225,7 @@ int main()
   {
     solver_constraint_t algoC;
 
-    algoC.setIterator([](const typename solver_constraint_t::variable_t& variable1,
+    algoC.setComparator([](const typename solver_constraint_t::variable_t& variable1,
                         const typename solver_constraint_t::variable_t& variable2)
     {
       return variable1.domainSize() < variable2.domainSize();
@@ -233,7 +233,7 @@ int main()
 
     algoC.setSelector([](const typename solver_constraint_t::variable_t& variable)
     {
-      return *(variable.domainBegin());
+      return *(variable.domain().begin());
     } );
 
     algoC.addConstraint([](solver_constraint_t& solver, const tda::Coord coord, const size_t value)
@@ -306,8 +306,8 @@ int main()
         else
         {
           std::cout << "{";
-          std::for_each(variable.domainBegin(),
-                        variable.domainEnd(),
+          std::for_each(variable.domain().begin(),
+                        variable.domain().end(),
                         [](const size_t& value) { std::cout << value; });
           std::cout << "}";
         }
